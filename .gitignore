@@ -1,0 +1,28 @@
+# STM32CubeIDE build output
+Debug/
+Release/
+
+# IDE settings (optional - keep if you want same IDE settings across machines)
+.settings/
+
+# Eclipse/STM32CubeIDE project metadata (keep .project and .cproject for repo)
+
+# Compiled object files
+*.o
+*.d
+*.su
+*.cyclo
+
+# Linker output
+*.elf
+*.map
+*.list
+*.hex
+*.bin
+
+# Dependency files
+*.dep
+
+# Windows
+Thumbs.db
+desktop.ini
