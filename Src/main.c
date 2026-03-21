@@ -4,16 +4,15 @@
 #include "task.h"
 #include "queue.h"
 #include "semphr.h"
-
+#include "FreeRTOSconfig.h"
+#include "dwt_counter.h"
+#include "rtos_profiler.h"
+#include "uart.h"
 
 #define USART2EN    (1U<<17)
 #define USART_TE    (1U<<3)
 #define USART_UE    (1U<<13)
 #define USART_TXE   (1U<<7)
-
-void uart_init(void);
-void uart_send_string(char *str);
-void uart_write(char ch);
 
 QueueHandle_t xqueue1;
 SemaphoreHandle_t xButtonSemaphore;
@@ -24,9 +23,12 @@ void vTask1(void *pvParameter);
 void vTask2(void *pvParameter);
 void vTask3(void *pvParameter);
 void vTask4(void *pvParameter);
+void vStatsTask(void *pvParameter);
 void EXTI15_10_IRQHandler(void);
 int main(){
 	xqueue1 =  xQueueCreate(5, sizeof(int));
+	profiler_init();
+	dwt_init();
 	RCC->AHB1ENR |= (5U<<0);
 	RCC->APB2ENR |= (1U<<14);
 
@@ -45,13 +47,15 @@ int main(){
 	xButtonSemaphore = xSemaphoreCreateBinary();
 	xUARTmutex = xSemaphoreCreateMutex();
 
-	xTaskCreate(vTask1, "Task1",configMINIMAL_STACK_SIZE, NULL, 1, NULL);
-
 	uart_init();
 
+	xTaskCreate(vTask1, "Task1",configMINIMAL_STACK_SIZE, NULL, 1, NULL);
 	xTaskCreate(vTask2, "Task2",configMINIMAL_STACK_SIZE, NULL, 1, NULL);
 	xTaskCreate(vTask3, "Task3",configMINIMAL_STACK_SIZE, NULL, 2, NULL);
 	xTaskCreate(vTask4, "Task4",configMINIMAL_STACK_SIZE, NULL, 3, NULL);
+	xTaskCreate(vStatsTask, "Stats", 256, NULL, 4, NULL);
+
+
 	vTaskStartScheduler();
 
 	while(1);
@@ -98,37 +102,14 @@ void vTask4(void *pvParameter){
 		GPIOA->ODR ^= (1U<<5);
 	}
 }
-void uart_init(void)
-{
-    RCC->AHB1ENR |= (1U<<0);
-    RCC->APB1ENR |= USART2EN;
-
-    /* PA2 -> Alternate function */
-    GPIOA->MODER &= ~(3U << (2*2));
-    GPIOA->MODER |=  (2U << (2*2));
-
-    /* AF7 for USART2 */
-    GPIOA->AFR[0] &= ~(0xF << 8);
-    GPIOA->AFR[0] |=  (7U << 8);
-
-    USART2->BRR = 0x0683;
-
-    USART2->CR1 = USART_TE | USART_UE;
+void vStatsTask(void *pvParameter){
+	for(;;){
+		profiler_calc_stats();
+		profiler_print_stats();
+		vTaskDelay(pdMS_TO_TICKS(1000));
+	}
 }
 
-void uart_write(char ch)
-{
-    while(!(USART2->SR & USART_TXE)){}
-    USART2->DR = ch;
-}
-
-void uart_send_string(char *str)
-{
-    while(*str)
-    {
-        uart_write(*str++);
-    }
-}
 void EXTI15_10_IRQHandler(void){
 	xSemaphoreGiveFromISR(xButtonSemaphore, NULL);
 	EXTI->PR|=(1U<<13);
