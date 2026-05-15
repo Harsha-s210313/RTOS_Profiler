@@ -69,7 +69,7 @@ void vTask1(void *pvParameter){
 		vTaskDelay(pdMS_TO_TICKS(1000));
 	}
 }
-
+   
 void vTask2(void *pvParameter){
 	int recieved_value = 0;
 	for(;;){
